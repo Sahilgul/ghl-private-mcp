@@ -6,6 +6,7 @@ steps:
       - deploy
       - ghl-private-mcp
       - --source=.
+      - --quiet
       - --region=us-central1
       - --platform=managed
       - --allow-unauthenticated
