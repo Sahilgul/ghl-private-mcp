@@ -10,53 +10,59 @@ Two things happen on every inbound HTTP request:
        X-GHL-Location-ID: <location id>
 
    These are stored in a ``ContextVar`` (see ``_context.py``) so every tool
-   function in the same request sees the caller's credentials — no shared
-   env-var state, no tenant bleed.
+   function in the same request sees the caller's credentials.
 
-If ``MCP_API_KEY`` is not set (local dev), the key check is skipped.
-If the GHL headers are absent, tools fall back to ``GHL_PIT_TOKEN`` /
-``GHL_LOCATION_ID`` env vars (single-tenant / legacy mode).
-
-Usage
------
-Call ``apply_auth_middleware(app)`` on the Starlette app returned by
-``mcp.streamable_http_app()`` before handing it to uvicorn.
+NOTE: implemented as a raw ASGI middleware (not Starlette's BaseHTTPMiddleware)
+because BaseHTTPMiddleware runs call_next in a separate asyncio task, which
+breaks ContextVar propagation. The raw ASGI approach keeps everything in the
+same coroutine so ContextVar values flow through correctly.
 """
 
 from __future__ import annotations
 
 import os
+from typing import Any, Callable
 
 from starlette.applications import Starlette
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ghl_mcp._context import set_request_creds
 
 _API_KEY = os.environ.get("MCP_API_KEY", "").strip()
 
+_UNAUTHORIZED = JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-class ApiKeyMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if _API_KEY:
-            key = request.headers.get("X-API-Key", "")
-            if key != _API_KEY:
-                return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-        token = request.headers.get("X-GHL-Token", "").strip()
-        location = request.headers.get("X-GHL-Location-ID", "").strip()
-        if token and location:
-            set_request_creds(token, location)
+class ApiKeyMiddleware:
+    """Raw ASGI middleware — runs in the same coroutine as the handler."""
 
-        return await call_next(request)
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            headers: dict[bytes, bytes] = dict(scope.get("headers", []))
+
+            if _API_KEY:
+                key = headers.get(b"x-api-key", b"").decode()
+                if key != _API_KEY:
+                    await _UNAUTHORIZED(scope, receive, send)
+                    return
+
+            token = headers.get(b"x-ghl-token", b"").decode().strip()
+            location = headers.get(b"x-ghl-location-id", b"").decode().strip()
+            if token and location:
+                set_request_creds(token, location)
+
+        await self.app(scope, receive, send)
 
 
 def apply_auth_middleware(app: Starlette) -> Starlette:
-    """Attach ``ApiKeyMiddleware`` to a Starlette app and return it."""
+    """Wrap a Starlette app with ``ApiKeyMiddleware`` and return it."""
     app.add_middleware(ApiKeyMiddleware)
     return app
 
 
-# Backwards-compatible alias used by server.py's noqa import.
+# Backwards-compatible alias
 require_api_key = ApiKeyMiddleware
