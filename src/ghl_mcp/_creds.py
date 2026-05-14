@@ -46,15 +46,28 @@ def _ensure_dotenv() -> None:
 
 
 def load_pit_credentials() -> PitCredentials:
-    """Return credentials from env, raising ``RuntimeError`` when missing."""
+    """Return credentials for the current request.
+
+    Resolution order:
+    1. Per-request headers (``X-GHL-Token`` / ``X-GHL-Location-ID``) stored
+       in the ``ContextVar`` by ``ApiKeyMiddleware`` — multi-tenant path.
+    2. ``GHL_PIT_TOKEN`` / ``GHL_LOCATION_ID`` env vars — single-tenant /
+       local-dev fallback.
+    """
+    from ghl_mcp._context import get_request_creds  # avoid circular import at module load
+
+    ctx = get_request_creds()
+    if ctx is not None:
+        return ctx
+
     _ensure_dotenv()
     token = os.environ.get(_KEY_TOKEN, "").strip()
     location = os.environ.get(_KEY_LOCATION, "").strip()
     missing = [k for k, v in ((_KEY_TOKEN, token), (_KEY_LOCATION, location)) if not v]
     if missing:
         raise RuntimeError(
-            f"GHL PIT credentials missing from environment: {missing}. "
-            f"Set {_KEY_TOKEN} (your Private Integration Token) and "
-            f"{_KEY_LOCATION} (your GHL location id) before running the server."
+            f"GHL credentials missing. Either pass X-GHL-Token and "
+            f"X-GHL-Location-ID request headers, or set {_KEY_TOKEN} and "
+            f"{_KEY_LOCATION} in the environment / .env file."
         )
     return PitCredentials(access_token=token, location_id=location)

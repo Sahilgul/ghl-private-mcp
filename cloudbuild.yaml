@@ -22,7 +22,7 @@ steps:
       - --platform=managed
       - --allow-unauthenticated
       - --port=8080
-      - --set-secrets=GHL_PIT_TOKEN=GHL_PIT_TOKEN:latest,GHL_LOCATION_ID=GHL_LOCATION_ID:latest
+      - --set-secrets=GHL_PIT_TOKEN=GHL_PIT_TOKEN:latest,GHL_LOCATION_ID=GHL_LOCATION_ID:latest,MCP_API_KEY=MCP_API_KEY:latest
       - --quiet
 
 images:
