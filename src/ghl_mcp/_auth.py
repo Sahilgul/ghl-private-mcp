@@ -7,22 +7,28 @@ must include the header:
 
 Requests without a valid key get a 401 response.
 If MCP_API_KEY is not set (e.g. local dev), auth is disabled.
+
+Usage
+-----
+Call ``apply_auth_middleware(app)`` on the Starlette app returned by
+``mcp.streamable_http_app()`` before handing it to uvicorn.  Importing
+this module no longer has side-effects so it is safe to import at any
+point in the startup sequence.
 """
 
 from __future__ import annotations
 
 import os
 
+from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from ghl_mcp._mcp import mcp
-
 _API_KEY = os.environ.get("MCP_API_KEY", "").strip()
 
 
-class _ApiKeyMiddleware(BaseHTTPMiddleware):
+class ApiKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if not _API_KEY:
             return await call_next(request)
@@ -32,8 +38,11 @@ class _ApiKeyMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-# Register middleware on the FastMCP app
-mcp.app.add_middleware(_ApiKeyMiddleware)
+def apply_auth_middleware(app: Starlette) -> Starlette:
+    """Attach ``ApiKeyMiddleware`` to a Starlette app and return it."""
+    app.add_middleware(ApiKeyMiddleware)
+    return app
 
-# Exported name so `from ghl_mcp._auth import require_api_key` works
-require_api_key = _ApiKeyMiddleware
+
+# Backwards-compatible alias used by server.py's noqa import.
+require_api_key = ApiKeyMiddleware

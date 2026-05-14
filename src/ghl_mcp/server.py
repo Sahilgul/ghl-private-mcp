@@ -45,8 +45,8 @@ import argparse
 
 # Import all tool modules — triggers @mcp.tool() registrations.
 import ghl_mcp.tools  # noqa: F401
+from ghl_mcp._auth import apply_auth_middleware, require_api_key  # noqa: F401
 from ghl_mcp._mcp import mcp
-from ghl_mcp._auth import require_api_key  # noqa: F401  (registers middleware)
 
 
 def run_stdio() -> None:
@@ -56,7 +56,10 @@ def run_stdio() -> None:
 
 def run_http() -> None:
     """Entry point for the ``ghl-mcp-http`` console script."""
-    mcp.run(transport="streamable-http")
+    import uvicorn
+
+    app = apply_auth_middleware(mcp.streamable_http_app())
+    uvicorn.run(app, host=mcp.settings.host, port=mcp.settings.port)
 
 
 if __name__ == "__main__":
@@ -65,6 +68,6 @@ if __name__ == "__main__":
     args, _ = parser.parse_known_args()
 
     if args.transport == "http":
-        mcp.run(transport="streamable-http")
+        run_http()
     else:
         run_stdio()
