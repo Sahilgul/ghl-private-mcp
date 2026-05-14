@@ -56,25 +56,15 @@ def run_stdio() -> None:
 
 def run_http() -> None:
     """Entry point for the ``ghl-mcp-http`` console script."""
-    parser = argparse.ArgumentParser(description="GHL Private MCP — HTTP transport")
-    parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--host", default="0.0.0.0")  # noqa: S104
-    args, _ = parser.parse_known_args()
-    mcp.settings.host = args.host
-    mcp.settings.port = args.port
     mcp.run(transport="streamable-http")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="GHL Private MCP server")
     parser.add_argument("--transport", choices=["stdio", "http"], default="stdio")
-    parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--host", default="0.0.0.0")  # noqa: S104
     args, _ = parser.parse_known_args()
 
     if args.transport == "http":
-        mcp.settings.host = args.host
-        mcp.settings.port = args.port
         mcp.run(transport="streamable-http")
     else:
         run_stdio()
