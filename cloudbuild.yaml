@@ -1,17 +1,32 @@
 steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - us-central1-docker.pkg.dev/meetvexa/cloud-run-source-deploy/ghl-private-mcp:$COMMIT_SHA
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - us-central1-docker.pkg.dev/meetvexa/cloud-run-source-deploy/ghl-private-mcp:$COMMIT_SHA
+
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args:
       - run
       - deploy
       - ghl-private-mcp
-      - --source=.
-      - --quiet
+      - --image=us-central1-docker.pkg.dev/meetvexa/cloud-run-source-deploy/ghl-private-mcp:$COMMIT_SHA
       - --region=us-central1
       - --platform=managed
       - --allow-unauthenticated
       - --port=8080
       - --set-secrets=GHL_PIT_TOKEN=GHL_PIT_TOKEN:latest,GHL_LOCATION_ID=GHL_LOCATION_ID:latest
+      - --quiet
+
+images:
+  - us-central1-docker.pkg.dev/meetvexa/cloud-run-source-deploy/ghl-private-mcp:$COMMIT_SHA
 
 options:
   logging: CLOUD_LOGGING_ONLY
