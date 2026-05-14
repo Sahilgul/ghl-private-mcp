@@ -22,7 +22,6 @@ steps:
       - --platform=managed
       - --allow-unauthenticated
       - --port=8080
-      - --set-secrets=MCP_API_KEY=MCP_API_KEY:latest
       - --quiet
 
 images:
