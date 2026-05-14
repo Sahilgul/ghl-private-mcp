@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Requestimage
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from ghl_mcp._mcp import mcp
