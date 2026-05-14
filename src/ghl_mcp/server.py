@@ -46,6 +46,7 @@ import argparse
 # Import all tool modules — triggers @mcp.tool() registrations.
 import ghl_mcp.tools  # noqa: F401
 from ghl_mcp._mcp import mcp
+from ghl_mcp._auth import require_api_key  # noqa: F401  (registers middleware)
 
 
 def run_stdio() -> None:
