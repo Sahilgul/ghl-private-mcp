@@ -1,17 +1,18 @@
-"""GHL PIT opportunity tools (4 tools).
+"""GHL opportunity tools (4 tools).
 
-Fills the MCP gaps: MCP has search/get/update-opportunity, but no create/upsert/
-update_status/delete.
+Read/write classification is set per-tool via ``ToolAnnotations``.
 
-  ghl.private.opportunities.create         — create a new deal (WRITE)
-  ghl.private.opportunities.upsert         — find-or-create idempotent (WRITE)
-  ghl.private.opportunities.update_status  — change deal status only (WRITE)
-  ghl.private.opportunities.delete         — permanently delete (WRITE/DESTRUCTIVE)
+  ghl.private.opportunities.create         — create a new deal
+  ghl.private.opportunities.upsert         — find-or-create (idempotent)
+  ghl.private.opportunities.update_status  — change a deal's status only
+  ghl.private.opportunities.delete         — permanently delete a deal
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_OPPORTUNITIES, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -71,10 +72,8 @@ def _opp_body(
 
 @mcp.tool(
     name="ghl.private.opportunities.create",
-    description=(
-        "Create a new GHL opportunity/deal (PIT REST, WRITE). Resolve pipeline_id + "
-        "pipeline_stage_id via opportunities_get-pipelines (MCP). MEDIUM tier."
-    ),
+    description="Create a new opportunity (deal) for a contact in a pipeline stage.",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_opportunity(
     pipeline_id: str,
@@ -106,8 +105,11 @@ async def create_opportunity(
 @mcp.tool(
     name="ghl.private.opportunities.upsert",
     description=(
-        "Find-or-create a GHL opportunity by (contact_id, pipeline_id) (PIT REST, WRITE, "
-        "IDEMPOTENT). Safer than create on retry — won't duplicate. MEDIUM tier."
+        "Find-or-create an opportunity by (contact_id, pipeline_id). "
+        "Idempotent — safe to retry without creating duplicates."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def upsert_opportunity(
@@ -140,9 +142,11 @@ async def upsert_opportunity(
 @mcp.tool(
     name="ghl.private.opportunities.update_status",
     description=(
-        "Update ONLY the status of a GHL opportunity (PIT REST, WRITE). "
-        "Status values: 'open', 'won', 'lost', 'abandoned'. Validates against pipeline. "
-        "MEDIUM tier."
+        "Update only the status of an opportunity. "
+        "Valid values: 'open', 'won', 'lost', 'abandoned'. Validated against the pipeline."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_opportunity_status(opportunity_id: str, status: str) -> dict[str, Any]:
@@ -162,11 +166,8 @@ async def update_opportunity_status(opportunity_id: str, status: str) -> dict[st
 
 @mcp.tool(
     name="ghl.private.opportunities.delete",
-    description=(
-        "Permanently delete a GHL opportunity (PIT REST, WRITE, DESTRUCTIVE). "
-        "Prefer marking 'lost' or 'abandoned' for real deals. "
-        "HIGH tier — requires confirmation."
-    ),
+    description="Permanently delete an opportunity.",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_opportunity(opportunity_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()

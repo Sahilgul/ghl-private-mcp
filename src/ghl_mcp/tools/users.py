@@ -1,12 +1,16 @@
-"""GHL PIT user tools (2 tools).
+"""GHL user tools (2 tools).
 
-  ghl.private.users.list  — list all users in the location (READ)
-  ghl.private.users.get   — get one user by id (READ)
+Read/write classification is set per-tool via ``ToolAnnotations``.
+
+  ghl.private.users.list  — list all users in the location
+  ghl.private.users.get   — get one user by id
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import (
     GHL_API_VERSION_USERS,
@@ -23,11 +27,8 @@ def _wrap(name: str, exc: Exception) -> RuntimeError:
 
 @mcp.tool(
     name="ghl.private.users.list",
-    description=(
-        "List all users in the connected GHL location (PIT REST, READ). "
-        "Use to resolve a human name in the brief (e.g. 'book with Sarah') "
-        "to a user id for ghl.private.calendars.book.assigned_user_id."
-    ),
+    description="List all users in the location with name, email, and role.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_users() -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -63,10 +64,8 @@ async def list_users() -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.users.get",
-    description=(
-        "Get one GHL user's detail by id (name, email, role, phone) (PIT REST, READ). "
-        "Use AFTER ghl.private.users.list to drill into a specific user."
-    ),
+    description="Get one user's detail by id (name, email, role, phone).",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_user(user_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()

@@ -2,7 +2,7 @@
 
 Run modes
 ---------
-stdio (spawned as subprocess by lyralabs or any MCP client):
+stdio (spawned as subprocess by meetvexa or any MCP client):
     python -m ghl_mcp.server
     # or: ghl-mcp-stdio
 

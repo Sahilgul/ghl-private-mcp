@@ -1,18 +1,21 @@
-"""GHL PIT calendar-group tools (6 tools).
+"""GHL calendar-group tools (6 tools).
 
 Calendar groups bundle calendars under a single public booking page.
+Read/write classification is set per-tool via ``ToolAnnotations``.
 
-  ghl.private.calendar_groups.list       — list all groups (READ)
-  ghl.private.calendar_groups.get        — get one group (READ)
-  ghl.private.calendar_groups.create     — create a group (WRITE)
-  ghl.private.calendar_groups.update     — update group metadata (WRITE)
-  ghl.private.calendar_groups.set_active — enable/disable booking page (WRITE)
-  ghl.private.calendar_groups.delete     — permanently delete (WRITE/DESTRUCTIVE)
+  ghl.private.calendar_groups.list       — list all groups
+  ghl.private.calendar_groups.get        — get one group
+  ghl.private.calendar_groups.create     — create a group
+  ghl.private.calendar_groups.update     — update group metadata
+  ghl.private.calendar_groups.set_active — enable or disable the booking page
+  ghl.private.calendar_groups.delete     — permanently delete a group
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_CALENDARS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -26,9 +29,10 @@ def _wrap(name: str, exc: Exception) -> RuntimeError:
 @mcp.tool(
     name="ghl.private.calendar_groups.list",
     description=(
-        "List GHL calendar groups in the location (PIT REST, READ). "
-        "Groups bundle multiple calendars under one public booking page slug."
+        "List calendar groups in the location. "
+        "Each group bundles multiple calendars under one public booking-page slug."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_calendar_groups() -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -60,7 +64,8 @@ async def list_calendar_groups() -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.calendar_groups.get",
-    description="Get one GHL calendar group's detail by id (PIT REST, READ).",
+    description="Get one calendar group's detail by id.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_calendar_group(group_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -87,9 +92,10 @@ async def get_calendar_group(group_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.calendar_groups.create",
     description=(
-        "Create a new GHL calendar group (PIT REST, WRITE). The slug becomes the "
-        "public booking-page URL component. MEDIUM tier — requires approval."
+        "Create a new calendar group. "
+        "The slug becomes the public booking-page URL component."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_calendar_group(
     name: str,
@@ -123,8 +129,11 @@ async def create_calendar_group(
 @mcp.tool(
     name="ghl.private.calendar_groups.update",
     description=(
-        "Update a GHL calendar group's metadata (PIT REST, WRITE). Changing the slug "
-        "breaks existing public-booking links — check before updating in production."
+        "Update a calendar group's metadata. "
+        "Changing the slug breaks existing public-booking links."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_calendar_group(
@@ -163,8 +172,11 @@ async def update_calendar_group(
 @mcp.tool(
     name="ghl.private.calendar_groups.set_active",
     description=(
-        "Enable or disable a GHL calendar group's public booking page (PIT REST, WRITE). "
-        "Disabling hides the page without deleting the group. MEDIUM tier."
+        "Enable or disable a calendar group's public booking page. "
+        "Disabling hides the page without deleting the group."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def set_calendar_group_active(group_id: str, is_active: bool) -> dict[str, Any]:
@@ -190,10 +202,10 @@ async def set_calendar_group_active(group_id: str, is_active: bool) -> dict[str,
 @mcp.tool(
     name="ghl.private.calendar_groups.delete",
     description=(
-        "Permanently delete a GHL calendar group (PIT REST, WRITE, DESTRUCTIVE). "
-        "Calendars in the group are ungrouped, not deleted. Prefer set_active(False). "
-        "HIGH tier — requires confirmation."
+        "Permanently delete a calendar group. "
+        "Calendars in the group are ungrouped, not deleted."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_calendar_group(group_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()

@@ -1,6 +1,7 @@
-"""GHL PIT funnels + forms + surveys tools (8 read-only tools).
+"""GHL funnels + forms + surveys tools (8 read-only tools).
 
-All tools are LOW-tier reads with no CRUD (no public REST writes exist for these).
+All tools are reads — no public REST writes exist for these surfaces.
+Read/write classification is set per-tool via ``ToolAnnotations``.
 
 Funnels (3): list, list_pages, get_page_count
 Forms (3):   list, submissions, files
@@ -10,6 +11,8 @@ Surveys (2): list, submissions
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import (
     GHL_API_VERSION_FORMS,
@@ -33,10 +36,8 @@ def _wrap(name: str, exc: Exception) -> RuntimeError:
 
 @mcp.tool(
     name="ghl.private.funnels.list",
-    description=(
-        "List GHL funnels in the location (PIT REST, READ). "
-        "Use BEFORE ghl.private.funnels.list_pages to drill into a funnel's pages."
-    ),
+    description="List funnels in the location with id, name, domain, and status.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_funnels() -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -68,9 +69,10 @@ async def list_funnels() -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.funnels.list_pages",
     description=(
-        "List the pages inside one funnel (PIT REST, READ). "
-        "Each page row includes traffic and conversion counts."
+        "List the pages inside one funnel. "
+        "Each page row includes visit and conversion counts."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_funnel_pages(funnel_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -105,9 +107,10 @@ async def list_funnel_pages(funnel_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.funnels.get_page_count",
     description=(
-        "Get traffic + conversion counts for one funnel page (PIT REST, READ). "
-        "Returns the raw counter document."
+        "Get visit and conversion counts for one funnel page. "
+        "Returns the raw counter document alongside the parsed totals."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_funnel_page_count(funnel_id: str, page_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -141,7 +144,8 @@ async def get_funnel_page_count(funnel_id: str, page_id: str) -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.forms.list",
-    description="List GHL forms in the location (PIT REST, READ).",
+    description="List forms in the location.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_forms(limit: int = 20, skip: int = 0) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -170,9 +174,10 @@ async def list_forms(limit: int = 20, skip: int = 0) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.forms.submissions",
     description=(
-        "List form submissions in the GHL location (PIT REST, READ). "
-        "Filter by form_id, date range, or paginate."
+        "List form submissions in the location, "
+        "optionally filtered by form_id and date range."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_form_submissions(
     form_id: str | None = None,
@@ -214,10 +219,8 @@ async def list_form_submissions(
 
 @mcp.tool(
     name="ghl.private.forms.files",
-    description=(
-        "List every file uploaded via any form in the location (PIT REST, READ). "
-        "Use for compliance audits and bulk-download flows."
-    ),
+    description="List every file uploaded via any form in the location.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_form_files(limit: int = 20, skip: int = 0) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -252,7 +255,8 @@ async def list_form_files(limit: int = 20, skip: int = 0) -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.surveys.list",
-    description="List GHL surveys in the location (PIT REST, READ).",
+    description="List surveys in the location.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_surveys(limit: int = 20, skip: int = 0) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -277,9 +281,10 @@ async def list_surveys(limit: int = 20, skip: int = 0) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.surveys.submissions",
     description=(
-        "List survey submissions in the GHL location (PIT REST, READ). "
-        "Filter by survey_id, date range, or paginate."
+        "List survey submissions in the location, "
+        "optionally filtered by survey_id and date range."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_survey_submissions(
     survey_id: str | None = None,

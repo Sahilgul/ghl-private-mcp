@@ -1,12 +1,16 @@
-"""GHL PIT order tools (2 tools).
+"""GHL order tools (2 tools).
 
-  ghl.private.orders.list           — list orders with filters (READ)
-  ghl.private.orders.record_payment — record offline payment on an order (WRITE)
+Read/write classification is set per-tool via ``ToolAnnotations``.
+
+  ghl.private.orders.list           — list orders with filters
+  ghl.private.orders.record_payment — record an offline payment on an order
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_PAYMENTS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -38,9 +42,10 @@ def _trim_order(r: dict[str, Any]) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.orders.list",
     description=(
-        "List GHL orders (one-time purchases) with optional filters (PIT REST, READ). "
-        "Complements the MCP payments_get-order-by-id tool for batch reporting."
+        "List orders (one-time purchases) in the location, "
+        "optionally filtered by contact, status, or date range."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_orders(
     contact_id: str | None = None,
@@ -80,9 +85,11 @@ async def list_orders(
 @mcp.tool(
     name="ghl.private.orders.record_payment",
     description=(
-        "Record an OFFLINE payment against a GHL order (PIT REST, WRITE). "
-        "Use for cash/check/wire collected outside GHL's processor. MEDIUM tier."
+        "Record an offline payment against an order "
+        "(cash, check, wire — collected outside the processor). "
+        "Mode is the offline payment method."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def record_order_payment(
     order_id: str,

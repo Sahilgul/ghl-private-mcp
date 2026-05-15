@@ -1,16 +1,19 @@
-"""GHL PIT admin-only whitelabel payment integration tools (2 tools).
+"""GHL admin-only whitelabel payment integration tools (2 tools).
 
 These configure HOW MONEY MOVES through the tenant (which payment provider,
 which API keys). Day-to-day agent briefs never need these; they surface only
-during payments-setup onboarding.
+during payments-setup onboarding. Read/write classification is set per-tool
+via ``ToolAnnotations``.
 
-  ghl.private.payments.integrations.whitelabel.list    — list providers (READ)
-  ghl.private.payments.integrations.whitelabel.create  — configure a provider (WRITE)
+  ghl.private.payments.integrations.whitelabel.list    — list configured providers
+  ghl.private.payments.integrations.whitelabel.create  — configure a new provider
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_PAYMENTS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -34,10 +37,8 @@ def _first_present(d: dict[str, Any], *keys: str) -> Any:
 
 @mcp.tool(
     name="ghl.private.payments.integrations.whitelabel.list",
-    description=(
-        "(ADMIN-ONLY) List configured whitelabel payment-integration providers "
-        "in the GHL location (PIT REST, READ). Use during payments-setup briefs."
-    ),
+    description="List configured whitelabel payment-integration providers in the location.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_whitelabel_integrations() -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -70,9 +71,10 @@ async def list_whitelabel_integrations() -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.payments.integrations.whitelabel.create",
     description=(
-        "(ADMIN-ONLY) Configure a whitelabel payment-integration provider (PIT REST, WRITE). "
-        "MEDIUM tier — configures future charge routing; past charges keep original routing."
+        "Configure a whitelabel payment-integration provider. "
+        "Affects routing of future charges only; past charges keep their original routing."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_whitelabel_integration(
     name: str,

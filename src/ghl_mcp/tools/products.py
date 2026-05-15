@@ -1,13 +1,17 @@
-"""GHL PIT Products + Prices + Inventory tools (12 tools).
+"""GHL Products + Prices + Inventory tools (12 tools).
 
-Products (5): list, get, create, update, delete
-Prices (5):   list, get, create, update, delete  (per product)
+Read/write classification is set per-tool via ``ToolAnnotations``.
+
+Products (5):  list, get, create, update, delete
+Prices (5):    list, get, create, update, delete (per product)
 Inventory (2): list, update (bulk stock counts)
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_PRODUCTS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -69,7 +73,8 @@ def _trim_inv(r: dict[str, Any]) -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.products.list",
-    description="List products in the GHL catalogue (PIT REST, READ).",
+    description="List products in the catalogue, optionally filtered by a search term.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_products(
     limit: int = 20,
@@ -96,7 +101,8 @@ async def list_products(
 
 @mcp.tool(
     name="ghl.private.products.get",
-    description="Get one GHL product by id (PIT REST, READ).",
+    description="Get one product's detail by id.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_product(product_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -116,9 +122,10 @@ async def get_product(product_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.products.create",
     description=(
-        "Add a new product to the GHL catalogue (PIT REST, WRITE). "
-        "Call ghl.private.products.prices.create separately to attach price points. MEDIUM tier."
+        "Add a new product to the catalogue. "
+        "The product is created without price points; attach those separately."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_product(
     name: str,
@@ -151,7 +158,10 @@ async def create_product(
 
 @mcp.tool(
     name="ghl.private.products.update",
-    description="Update a GHL product (PIT REST, WRITE). Only supplied fields change. MEDIUM tier.",
+    description="Update a product's fields. Only supplied fields are changed.",
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
+    ),
 )
 async def update_product(
     product_id: str,
@@ -189,9 +199,10 @@ async def update_product(
 @mcp.tool(
     name="ghl.private.products.delete",
     description=(
-        "Delete a product from the GHL catalogue (PIT REST, WRITE, DESTRUCTIVE). "
-        "Breaks historical invoice/order references. HIGH tier — requires confirmation."
+        "Permanently delete a product from the catalogue. "
+        "Historical invoice and order references to this product are broken."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_product(product_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -215,7 +226,8 @@ async def delete_product(product_id: str) -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.products.prices.list",
-    description="List all price points for one product (PIT REST, READ).",
+    description="List all price points attached to one product.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_product_prices(product_id: str, limit: int = 20, skip: int = 0) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -238,7 +250,8 @@ async def list_product_prices(product_id: str, limit: int = 20, skip: int = 0) -
 
 @mcp.tool(
     name="ghl.private.products.prices.get",
-    description="Get one price point for a product by id (PIT REST, READ).",
+    description="Get one price point on a product by id.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_product_price(product_id: str, price_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -257,7 +270,11 @@ async def get_product_price(product_id: str, price_id: str) -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.products.prices.create",
-    description="Attach a new price point to a product (PIT REST, WRITE). MEDIUM tier.",
+    description=(
+        "Attach a new price point to a product. "
+        "price_type='one_time' or 'recurring'; recurring requires recurring_interval."
+    ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_product_price(
     product_id: str,
@@ -296,7 +313,10 @@ async def create_product_price(
 
 @mcp.tool(
     name="ghl.private.products.prices.update",
-    description="Update a price point on a product (PIT REST, WRITE). MEDIUM tier.",
+    description="Update a price point on a product. Only supplied fields are changed.",
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
+    ),
 )
 async def update_product_price(
     product_id: str,
@@ -329,9 +349,10 @@ async def update_product_price(
 @mcp.tool(
     name="ghl.private.products.prices.delete",
     description=(
-        "Delete a price point from a product (PIT REST, WRITE, DESTRUCTIVE). "
-        "HIGH tier — active subscriptions on this price may break at next renewal."
+        "Permanently delete a price point from a product. "
+        "Active subscriptions on this price may break at the next renewal."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_product_price(product_id: str, price_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -355,7 +376,8 @@ async def delete_product_price(product_id: str, price_id: str) -> dict[str, Any]
 
 @mcp.tool(
     name="ghl.private.products.inventory.list",
-    description="List inventory levels across all stocked product variants (PIT REST, READ).",
+    description="List inventory levels across all stocked product variants in the location.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_inventory(
     limit: int = 20, skip: int = 0, search: str | None = None
@@ -386,9 +408,11 @@ async def list_inventory(
 @mcp.tool(
     name="ghl.private.products.inventory.update",
     description=(
-        "Bulk-update inventory levels (PIT REST, WRITE). "
-        "items: list of {item_id, available_quantity?, out_of_stock_purchases_enabled?}. "
-        "MEDIUM tier — approval required."
+        "Bulk-update inventory levels. "
+        "items is a list of {item_id, available_quantity?, out_of_stock_purchases_enabled?}."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_inventory(items: list[dict[str, Any]]) -> dict[str, Any]:

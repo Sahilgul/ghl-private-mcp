@@ -1,18 +1,25 @@
-"""GHL PIT calendar tools (7 tools).
+"""GHL calendar tools (7 tools).
+
+Read/write classification is set per-tool via ``ToolAnnotations``
+(``readOnlyHint`` / ``destructiveHint`` / ``idempotentHint``); the
+client-side adapter derives approval-gating from those hints rather
+than parsing the description string.
 
   ghl.private.calendars.list        — list all calendars
   ghl.private.calendars.free_slots  — find bookable slots
-  ghl.private.calendars.book        — book one appointment (WRITE)
+  ghl.private.calendars.book        — book one appointment
   ghl.private.calendars.get         — get one calendar's config
-  ghl.private.calendars.create      — create a calendar (WRITE)
-  ghl.private.calendars.update      — update calendar fields (WRITE)
-  ghl.private.calendars.delete      — permanently delete (WRITE)
+  ghl.private.calendars.create      — create a calendar
+  ghl.private.calendars.update      — update calendar fields
+  ghl.private.calendars.delete      — permanently delete
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_CALENDARS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -26,11 +33,8 @@ def _wrap(name: str, exc: Exception) -> RuntimeError:
 
 @mcp.tool(
     name="ghl.private.calendars.list",
-    description=(
-        "List all calendars in the connected GHL location (PIT REST). "
-        "Use BEFORE ghl.private.calendars.free_slots or "
-        "ghl.private.calendars.book to resolve calendar names to ids."
-    ),
+    description="List all calendars in the location.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_calendars(
     group_id: str | None = None,
@@ -69,9 +73,10 @@ async def list_calendars(
 @mcp.tool(
     name="ghl.private.calendars.free_slots",
     description=(
-        "Find bookable slots on a GHL calendar in a date window (PIT REST). "
-        "Returns a per-day map of ISO timestamps. Window capped at 31 days by GHL."
+        "Find bookable slots on a calendar within a date window. "
+        "Returns a per-day map of ISO timestamps. Date window is capped at 31 days."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def calendar_free_slots(
     calendar_id: str,
@@ -129,11 +134,8 @@ async def calendar_free_slots(
 
 @mcp.tool(
     name="ghl.private.calendars.book",
-    description=(
-        "Book one appointment on a GHL calendar (PIT REST, WRITE). "
-        "Resolve calendar_id via ghl.private.calendars.list, contact_id via "
-        "contacts_get-contacts (MCP). Requires approval."
-    ),
+    description="Book one appointment for a contact on a calendar at a given start time.",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def book_appointment(
     calendar_id: str,
@@ -185,9 +187,10 @@ async def book_appointment(
 @mcp.tool(
     name="ghl.private.calendars.get",
     description=(
-        "Get one GHL calendar's full configuration (slot duration, working hours, "
-        "team members) by id (PIT REST). Use after ghl.private.calendars.list."
+        "Get one calendar's full configuration by id "
+        "(slot duration, working hours, team members)."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_calendar(calendar_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -214,9 +217,9 @@ async def get_calendar(calendar_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.calendars.create",
     description=(
-        "Create a new GHL calendar (PIT REST, WRITE). Sets name, type, slot duration, "
-        "and team members. WRITE — requires approval."
+        "Create a new calendar. Sets name, type, slot duration, and team members."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_calendar(
     name: str,
@@ -255,9 +258,9 @@ async def create_calendar(
 
 @mcp.tool(
     name="ghl.private.calendars.update",
-    description=(
-        "Update fields on an existing GHL calendar (PIT REST, WRITE). "
-        "Use is_active=False to soft-delete instead of permanently deleting."
+    description="Update fields on an existing calendar.",
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_calendar(
@@ -308,10 +311,8 @@ async def update_calendar(
 
 @mcp.tool(
     name="ghl.private.calendars.delete",
-    description=(
-        "Permanently delete a GHL calendar (PIT REST, DESTRUCTIVE). "
-        "Prefer update with is_active=False. HIGH tier — requires confirmation."
-    ),
+    description="Permanently delete a calendar.",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_calendar(calendar_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()

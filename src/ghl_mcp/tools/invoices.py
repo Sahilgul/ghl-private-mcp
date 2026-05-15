@@ -1,10 +1,11 @@
-"""GHL PIT invoice tools (11 tools).
+"""GHL invoice tools (11 tools).
 
-Full invoice lifecycle — MCP doesn't expose invoices at all.
+Full invoice lifecycle. Read/write classification is set per-tool via
+``ToolAnnotations``.
 
-Reads (LOW): list, get, settings.get, generate_number
-Writes (MEDIUM): create, update, record_manual_payment, update_late_fees
-Destructive (HIGH): delete, void, send
+Reads:        list, get, settings.get, generate_number
+Writes:       create, update, record_manual_payment, update_late_fees
+Destructive:  delete, void, send
 
 Every invoice endpoint uses altId/altType for location scoping.
 """
@@ -12,6 +13,8 @@ Every invoice endpoint uses altId/altType for location scoping.
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_INVOICES, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -45,9 +48,10 @@ def _trim(row: dict[str, Any]) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.invoices.list",
     description=(
-        "List invoices in the GHL location with optional filters "
-        "(contact, status, date range). Read-only (PIT REST)."
+        "List invoices in the location, "
+        "optionally filtered by contact, status, or date range."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_invoices(
     contact_id: str | None = None,
@@ -86,7 +90,8 @@ async def list_invoices(
 
 @mcp.tool(
     name="ghl.private.invoices.get",
-    description="Get one GHL invoice's detail (status, line items, contact, totals) (PIT REST).",
+    description="Get one invoice's detail by id (status, line items, contact, totals).",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_invoice(invoice_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -106,9 +111,10 @@ async def get_invoice(invoice_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.invoices.settings.get",
     description=(
-        "Get the GHL location's invoice settings (default tax rate, currency, "
-        "late-fee defaults, branding, terms). Read-only (PIT REST)."
+        "Get the location's invoice settings "
+        "(default tax rate, currency, late-fee defaults, branding, terms)."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_invoice_settings() -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -128,9 +134,10 @@ async def get_invoice_settings() -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.invoices.generate_number",
     description=(
-        "Generate the NEXT invoice number for the location following GHL's numbering "
-        "scheme. Use BEFORE ghl.private.invoices.create. Read-only (doesn't reserve)."
+        "Generate the next invoice number for the location following its numbering scheme. "
+        "Read-only — the number is not reserved on the server."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def generate_invoice_number() -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -150,9 +157,10 @@ async def generate_invoice_number() -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.invoices.create",
     description=(
-        "Create a draft GHL invoice for a contact (PIT REST, WRITE). Status starts "
-        "as 'draft'; use ghl.private.invoices.send to email it. MEDIUM tier."
+        "Create a draft invoice for a contact. Status starts as 'draft'. "
+        "items is a list of {name, quantity, unit_price, description?}."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_invoice(
     contact_id: str,
@@ -208,8 +216,11 @@ async def create_invoice(
 @mcp.tool(
     name="ghl.private.invoices.update",
     description=(
-        "Update fields on an existing GHL invoice (PIT REST, WRITE). "
-        "Most useful for fixing a typo on a draft or extending a due date. MEDIUM tier."
+        "Update fields on an existing invoice. "
+        "Only supplied fields change; if items is provided it replaces the whole list."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_invoice(
@@ -262,10 +273,11 @@ async def update_invoice(
 @mcp.tool(
     name="ghl.private.invoices.delete",
     description=(
-        "Permanently delete a GHL invoice (PIT REST, WRITE, DESTRUCTIVE). "
-        "Only invoices with no payments recorded can be deleted; void paid invoices. "
-        "HIGH tier — requires confirmation."
+        "Permanently delete an invoice. "
+        "Only invoices with no payments recorded can be deleted; "
+        "use void on invoices that already have payments."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_invoice(invoice_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -285,10 +297,10 @@ async def delete_invoice(invoice_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.invoices.void",
     description=(
-        "Void a GHL invoice (PIT REST, WRITE, IRREVERSIBLE). Status becomes 'void'; "
-        "future payments are blocked. Use INSTEAD OF delete when payments are recorded. "
-        "HIGH tier — requires confirmation."
+        "Void an invoice. Status becomes 'void' and future payments are blocked. "
+        "Irreversible."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def void_invoice(invoice_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -308,10 +320,10 @@ async def void_invoice(invoice_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.invoices.send",
     description=(
-        "Send a GHL invoice to the contact via email and/or SMS (PIT REST, WRITE). "
-        "Contact receives a real notification with a payment link — IRREVERSIBLE. "
-        "HIGH tier — requires confirmation."
+        "Send an invoice to the contact via email and/or SMS. "
+        "Delivers a real notification with a payment link — irreversible once sent."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def send_invoice(
     invoice_id: str,
@@ -348,9 +360,11 @@ async def send_invoice(
 @mcp.tool(
     name="ghl.private.invoices.record_manual_payment",
     description=(
-        "Record an OFFLINE payment against a GHL invoice (PIT REST, WRITE). "
-        "Use for cash/check/wire collected outside GHL's processor. MEDIUM tier."
+        "Record an offline payment against an invoice "
+        "(cash, check, wire — collected outside the processor). "
+        "Mode is the offline payment method."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def record_invoice_payment(
     invoice_id: str,
@@ -382,8 +396,12 @@ async def record_invoice_payment(
 @mcp.tool(
     name="ghl.private.invoices.update_late_fees",
     description=(
-        "Configure late fees for one GHL invoice (PIT REST, WRITE). "
-        "Enable/disable, set type (flat/percentage), amount, and grace period. MEDIUM tier."
+        "Configure late fees on one invoice: enable/disable, type "
+        "(flat or percentage), amount, and grace period in days. "
+        "fee_type and fee_amount are required when enabled is true."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_invoice_late_fees(

@@ -1,13 +1,15 @@
-"""GHL PIT transaction tools (1 tool).
+"""GHL transaction tools (1 tool).
 
-The MCP exposes payments_list-transactions; this fills the single-record drill-down.
+Read/write classification is set per-tool via ``ToolAnnotations``.
 
-  ghl.private.transactions.get  — get one transaction by id (READ)
+  ghl.private.transactions.get  — get one transaction by id
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_PAYMENTS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -21,10 +23,10 @@ def _wrap(name: str, exc: Exception) -> RuntimeError:
 @mcp.tool(
     name="ghl.private.transactions.get",
     description=(
-        "Get one GHL transaction's detail by id (PIT REST, READ). "
-        "The MCP payments_list-transactions returns a list; this drills into ONE record. "
-        "Use after narrowing on the MCP list."
+        "Get one transaction's full detail by id "
+        "(amount, status, provider, linked invoice/subscription)."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_transaction(transaction_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()

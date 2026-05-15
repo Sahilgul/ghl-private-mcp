@@ -1,19 +1,22 @@
-"""GHL PIT Custom Fields V2 tools (7 tools).
+"""GHL Custom Fields V2 tools (7 tools).
 
 V2 object-keyed surface — supports contact, opportunity, business, etc.
+Read/write classification is set per-tool via ``ToolAnnotations``.
 
-  ghl.private.custom_fields.get              — get one field by id (READ)
-  ghl.private.custom_fields.list_by_object   — list fields for an object (READ)
-  ghl.private.custom_fields.create           — create a field (WRITE)
-  ghl.private.custom_fields.update           — rename/reconfigure a field (WRITE)
-  ghl.private.custom_fields.delete           — DESTROY field + all values (WRITE/DESTRUCTIVE)
-  ghl.private.custom_fields.folders.create   — create an org folder (WRITE)
-  ghl.private.custom_fields.folders.delete   — delete a folder (re-parents fields) (WRITE)
+  ghl.private.custom_fields.get              — get one field by id
+  ghl.private.custom_fields.list_by_object   — list fields for an object key
+  ghl.private.custom_fields.create           — create a custom field
+  ghl.private.custom_fields.update           — rename / reconfigure a field
+  ghl.private.custom_fields.delete           — permanently delete a field and its values
+  ghl.private.custom_fields.folders.create   — create an organisational folder
+  ghl.private.custom_fields.folders.delete   — delete a folder (re-parents fields)
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_CUSTOM_FIELDS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -38,7 +41,8 @@ def _trim(r: dict[str, Any]) -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.custom_fields.get",
-    description="Get one custom field's definition by id (PIT REST, READ).",
+    description="Get one custom field's definition by id.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_custom_field(field_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -57,10 +61,10 @@ async def get_custom_field(field_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.custom_fields.list_by_object",
     description=(
-        "List every custom field for one object key (PIT REST, READ). "
-        "object_key: 'contact', 'opportunity', 'business', etc. "
-        "Also returns folder structure."
+        "List every custom field for one object key (e.g. 'contact', 'opportunity', "
+        "'business'). Also returns the folder structure."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_custom_fields_by_object(object_key: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -82,9 +86,10 @@ async def list_custom_fields_by_object(object_key: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.custom_fields.create",
     description=(
-        "Create a custom field on a GHL object (PIT REST, WRITE). MEDIUM tier. "
-        "Call list_by_object first to confirm field_key isn't already taken."
+        "Create a custom field on an object (contact, opportunity, business, etc.). "
+        "field_key must be unique within the object."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_custom_field(
     name: str,
@@ -123,8 +128,11 @@ async def create_custom_field(
 @mcp.tool(
     name="ghl.private.custom_fields.update",
     description=(
-        "Update a custom field's name, placeholder, folder, or options (PIT REST, WRITE). "
-        "Cannot change object_key or data_type — delete + recreate for that. MEDIUM tier."
+        "Update a custom field's name, placeholder, folder, or options. "
+        "object_key and data_type cannot be changed — delete and recreate for that."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_custom_field(
@@ -160,10 +168,10 @@ async def update_custom_field(
 @mcp.tool(
     name="ghl.private.custom_fields.delete",
     description=(
-        "PERMANENTLY delete a custom field AND every value stored in it across all records "
-        "(PIT REST, WRITE, DESTRUCTIVE). Unrecoverable short of a tenant DB restore. "
-        "HIGH tier — requires confirmation."
+        "Permanently delete a custom field and every value stored in it across all records. "
+        "Unrecoverable short of a tenant database restore."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_custom_field(field_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -180,9 +188,10 @@ async def delete_custom_field(field_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.custom_fields.folders.create",
     description=(
-        "Create a folder to organise custom fields in the GHL UI (PIT REST, WRITE). "
-        "Pass folder id as parent_id when creating fields. MEDIUM tier."
+        "Create a folder to organise custom fields in the UI. "
+        "The folder id can be passed as parent_id when creating fields."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_custom_field_folder(name: str, object_key: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -208,9 +217,10 @@ async def create_custom_field_folder(name: str, object_key: str) -> dict[str, An
 @mcp.tool(
     name="ghl.private.custom_fields.folders.delete",
     description=(
-        "Delete a custom-field folder (PIT REST, WRITE). "
-        "Fields inside are re-parented to the location root, NOT deleted. MEDIUM tier."
+        "Delete a custom-field folder. "
+        "Fields inside are re-parented to the location root, not deleted."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def delete_custom_field_folder(folder_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()

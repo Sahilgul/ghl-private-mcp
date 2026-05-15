@@ -1,19 +1,21 @@
-"""GHL PIT tag taxonomy tools (5 tools).
+"""GHL tag taxonomy tools (5 tools).
 
 Manages the LOCATION-LEVEL TAG TAXONOMY — the master list of tag names
-available in a sub-account. Adding/removing tags from specific contacts
-uses the official MCP tools (contacts_add-tags / contacts_remove-tags).
+available in a sub-account. Read/write classification is set per-tool
+via ``ToolAnnotations``.
 
-  ghl.private.tags.list    — list all tags (READ)
-  ghl.private.tags.get     — get one tag by id (READ)
-  ghl.private.tags.create  — add a new tag to taxonomy (WRITE)
-  ghl.private.tags.update  — rename a tag (WRITE)
-  ghl.private.tags.delete  — delete tag from taxonomy (WRITE)
+  ghl.private.tags.list    — list all tags
+  ghl.private.tags.get     — get one tag by id
+  ghl.private.tags.create  — add a new tag to the taxonomy
+  ghl.private.tags.update  — rename a tag
+  ghl.private.tags.delete  — delete a tag from the taxonomy
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_TAGS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -39,10 +41,8 @@ def _tags_path(location_id: str, tag_id: str | None = None) -> str:
 
 @mcp.tool(
     name="ghl.private.tags.list",
-    description=(
-        "List all tags in the GHL location's taxonomy (PIT REST, READ). "
-        "Use BEFORE contacts_add-tags (MCP) to confirm a tag name exists first."
-    ),
+    description="List all tags in the location's taxonomy.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_tags() -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -61,7 +61,8 @@ async def list_tags() -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.tags.get",
-    description="Get one tag's details by id (PIT REST, READ).",
+    description="Get one tag's details by id.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_tag(tag_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -79,10 +80,8 @@ async def get_tag(tag_id: str) -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.tags.create",
-    description=(
-        "Add a new tag to the GHL location's taxonomy (PIT REST, WRITE). "
-        "The tag becomes available for contacts_add-tags (MCP). MEDIUM tier."
-    ),
+    description="Add a new tag to the location's taxonomy.",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_tag(name: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -102,8 +101,11 @@ async def create_tag(name: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.tags.update",
     description=(
-        "Rename a tag in the GHL location's taxonomy (PIT REST, WRITE). "
-        "All contacts already wearing this tag stay tagged under the new name."
+        "Rename a tag in the location's taxonomy. "
+        "Contacts already wearing the tag stay tagged under the new name."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_tag(tag_id: str, name: str) -> dict[str, Any]:
@@ -124,10 +126,10 @@ async def update_tag(tag_id: str, name: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.tags.delete",
     description=(
-        "Delete a tag from the GHL location's taxonomy (PIT REST, WRITE). "
-        "Removes the tag from EVERY contact wearing it — contacts stay intact. "
-        "Recoverable by re-creating the tag. MEDIUM tier."
+        "Delete a tag from the location's taxonomy. "
+        "Removes the tag from every contact wearing it; contacts themselves stay intact."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_tag(tag_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()

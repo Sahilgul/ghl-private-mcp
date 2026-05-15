@@ -1,12 +1,16 @@
-"""GHL PIT subscription tools (2 read-only tools).
+"""GHL subscription tools (2 read-only tools).
 
-  ghl.private.subscriptions.list  — list subscriptions with filters (READ)
-  ghl.private.subscriptions.get   — get one subscription by id (READ)
+Read/write classification is set per-tool via ``ToolAnnotations``.
+
+  ghl.private.subscriptions.list  — list subscriptions with filters
+  ghl.private.subscriptions.get   — get one subscription by id
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_PAYMENTS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -40,9 +44,10 @@ def _trim(r: dict[str, Any]) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.subscriptions.list",
     description=(
-        "List GHL subscriptions with optional contact/status filters (PIT REST, READ). "
-        "Use to answer 'what is our active MRR' or show a contact's plans."
+        "List subscriptions in the location, "
+        "optionally filtered by contact or status."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_subscriptions(
     contact_id: str | None = None,
@@ -78,7 +83,8 @@ async def list_subscriptions(
 
 @mcp.tool(
     name="ghl.private.subscriptions.get",
-    description="Get one GHL subscription's detail (PIT REST, READ).",
+    description="Get one subscription's full detail by id.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_subscription(subscription_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()

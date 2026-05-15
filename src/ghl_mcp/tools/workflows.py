@@ -1,15 +1,18 @@
-"""GHL PIT workflow tools (3 tools).
+"""GHL workflow tools (3 tools).
 
 Workflow DEFINITIONS are GUI-only on GHL. These tools handle ENROLMENT only.
+Read/write classification is set per-tool via ``ToolAnnotations``.
 
-  ghl.private.workflows.list      — list all workflows (READ)
-  ghl.private.workflows.enroll    — enrol a contact into a workflow (WRITE)
-  ghl.private.workflows.unenroll  — remove a contact from a workflow (WRITE)
+  ghl.private.workflows.list      — list all workflows
+  ghl.private.workflows.enroll    — enrol a contact into a workflow
+  ghl.private.workflows.unenroll  — remove a contact from a workflow
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_WORKFLOWS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -22,10 +25,8 @@ def _wrap(name: str, exc: Exception) -> RuntimeError:
 
 @mcp.tool(
     name="ghl.private.workflows.list",
-    description=(
-        "List GHL workflows in the location (PIT REST, READ). "
-        "Use BEFORE ghl.private.workflows.enroll to resolve workflow names to ids."
-    ),
+    description="List workflows in the location with id, name, status, and version.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_workflows() -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -57,10 +58,11 @@ async def list_workflows() -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.workflows.enroll",
     description=(
-        "Enrol a contact into a GHL workflow (PIT REST, WRITE). The workflow's "
-        "first step fires immediately (or at event_start_time if specified). "
-        "MEDIUM tier — the workflow may send emails/SMS."
+        "Enrol a contact into a workflow. "
+        "The first step fires immediately, or at event_start_time if supplied. "
+        "Later steps may send real emails or SMS to the contact."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def enroll_contact_in_workflow(
     contact_id: str,
@@ -87,9 +89,10 @@ async def enroll_contact_in_workflow(
 @mcp.tool(
     name="ghl.private.workflows.unenroll",
     description=(
-        "Remove a contact from a GHL workflow (PIT REST, WRITE). Stops pending "
-        "steps; already-fired steps (sent emails etc.) cannot be unsent. MEDIUM tier."
+        "Remove a contact from a workflow. "
+        "Cancels pending steps; already-fired steps (e.g. sent emails) cannot be unsent."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def unenroll_contact_from_workflow(
     contact_id: str,

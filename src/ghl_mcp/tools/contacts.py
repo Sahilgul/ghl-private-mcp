@@ -1,15 +1,19 @@
-"""GHL PIT contact gap-filler tools (2 tools).
+"""GHL contact tools (2 tools).
 
-Complements the official MCP contact surface (contacts_get-contact,
-contacts_create-contact, etc.) with the two missing operations:
+Read/write classification is set per-tool via ``ToolAnnotations``
+(``readOnlyHint`` / ``destructiveHint`` / ``idempotentHint``); the
+client-side adapter derives approval-gating from those hints rather
+than parsing the description string.
 
-  ghl.private.contacts.delete       — GDPR erasure (WRITE/DESTRUCTIVE)
-  ghl.private.contacts.by_business  — list contacts by business id (READ)
+  ghl.private.contacts.delete       — permanently delete a contact
+  ghl.private.contacts.by_business  — list contacts attached to a business
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_CONTACTS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -23,10 +27,10 @@ def _wrap(name: str, exc: Exception) -> RuntimeError:
 @mcp.tool(
     name="ghl.private.contacts.delete",
     description=(
-        "PERMANENTLY delete a GHL contact and all associated history "
-        "(messages, opportunities, notes) (PIT REST, WRITE, DESTRUCTIVE). "
-        "Use for GDPR/compliance erasure. HIGH tier — requires confirmation."
+        "Permanently delete a contact and all associated history "
+        "(messages, opportunities, notes)."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_contact(contact_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -44,11 +48,8 @@ async def delete_contact(contact_id: str) -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.contacts.by_business",
-    description=(
-        "List every contact attached to one GHL business (B2B-org grouping) "
-        "(PIT REST, READ). Use for 'who works at company X' briefs. "
-        "Complements MCP contacts_get-contacts which doesn't filter by business."
-    ),
+    description="List every contact attached to one business (B2B-org grouping).",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_contacts_by_business(
     business_id: str,

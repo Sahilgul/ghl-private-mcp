@@ -1,11 +1,11 @@
-"""Standalone GHL PIT REST client — no lyralabs dependency.
+"""Standalone GHL PIT REST client — no meetvexa dependency.
 
-Adapted from lyralabs/packages/lyra_core/tools/ghl_pit/_client.py.
+Adapted from meetvexa/packages/vexa_core/tools/ghl_pit/_client.py.
 Key differences from the original:
   * ``ProviderCredentials`` replaced by the lightweight ``PitCredentials``
     dataclass defined here.
   * No ``ToolError`` imports; callers raise ``RuntimeError`` for MCP.
-  * All request/retry/error logic is identical to the lyralabs original.
+  * All request/retry/error logic is identical to the meetvexa original.
 """
 
 from __future__ import annotations

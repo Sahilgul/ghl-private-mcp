@@ -1,16 +1,18 @@
-"""GHL PIT conversation tools (4 tools).
+"""GHL conversation tools (4 tools).
 
-Fills MCP gaps (MCP has search/get-messages/send but no create/get/update/delete).
+Read/write classification is set per-tool via ``ToolAnnotations``.
 
-  ghl.private.conversations.create  — start a new thread (WRITE)
-  ghl.private.conversations.get     — get one thread by id (READ)
-  ghl.private.conversations.update  — mark read/unread, star, archive (WRITE)
-  ghl.private.conversations.delete  — permanently delete thread (WRITE/DESTRUCTIVE)
+  ghl.private.conversations.create  — start a new thread with a contact
+  ghl.private.conversations.get     — get one thread's metadata
+  ghl.private.conversations.update  — mark read/unread, star, archive
+  ghl.private.conversations.delete  — permanently delete a thread
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_CONVERSATIONS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -45,10 +47,9 @@ def _trim(r: dict[str, Any]) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.conversations.create",
     description=(
-        "Create a new GHL conversation thread with a contact (PIT REST, WRITE). "
-        "Thread is created empty — send the first message via MCP "
-        "conversations_send-a-new-message. MEDIUM tier."
+        "Create a new conversation thread with a contact. The thread starts empty."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_conversation(contact_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -69,9 +70,10 @@ async def create_conversation(contact_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.conversations.get",
     description=(
-        "Get one conversation's metadata by id (PIT REST, READ). "
-        "Returns contact, channel type, unread count, archived state."
+        "Get one conversation's metadata by id "
+        "(contact, channel type, unread count, archived state)."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_conversation(conversation_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -90,8 +92,11 @@ async def get_conversation(conversation_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.conversations.update",
     description=(
-        "Update a conversation's flag state (PIT REST, WRITE): mark read/unread "
-        "(unread_count=0), star, or archive. Only supplied fields change. MEDIUM tier."
+        "Update a conversation's flag state: starred, archived, or unread_count "
+        "(set unread_count=0 to mark as read). Only supplied fields change."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_conversation(
@@ -123,10 +128,8 @@ async def update_conversation(
 
 @mcp.tool(
     name="ghl.private.conversations.delete",
-    description=(
-        "PERMANENTLY delete a conversation thread and all its messages (PIT REST, WRITE, "
-        "DESTRUCTIVE). HIGH tier — requires confirmation."
-    ),
+    description="Permanently delete a conversation thread and all of its messages.",
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_conversation(conversation_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()

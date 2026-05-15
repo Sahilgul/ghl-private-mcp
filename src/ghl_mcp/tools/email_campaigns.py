@@ -1,20 +1,22 @@
-"""GHL PIT email campaign tools (8 tools).
+"""GHL email campaign tools (8 tools).
 
-V2 API surface — locationId is a PATH SEGMENT, not a query param.
+Read/write classification is set per-tool via ``ToolAnnotations``.
 
-  ghl.private.email_campaigns.list                   — list campaigns (READ)
-  ghl.private.email_campaigns.create                 — create campaign definition (WRITE)
-  ghl.private.email_campaigns.update                 — update name/subject/status (WRITE)
-  ghl.private.email_campaigns.delete                 — permanently delete (WRITE/DESTRUCTIVE)
-  ghl.private.email_campaigns.schedule               — schedule a send (WRITE/BULK)
-  ghl.private.email_campaigns.workflow_campaigns.list — list workflow-triggered campaigns (READ)
-  ghl.private.email_campaigns.bulk_actions.list      — list bulk-action campaigns (READ)
-  ghl.private.email_campaigns.templates.list         — list email templates (READ)
+  ghl.private.email_campaigns.list                    — list campaigns
+  ghl.private.email_campaigns.create                  — create a campaign definition
+  ghl.private.email_campaigns.update                  — update name / subject / status
+  ghl.private.email_campaigns.delete                  — permanently delete a campaign
+  ghl.private.email_campaigns.schedule                — schedule a send
+  ghl.private.email_campaigns.workflow_campaigns.list — list workflow-triggered ones
+  ghl.private.email_campaigns.bulk_actions.list       — list bulk-action campaigns
+  ghl.private.email_campaigns.templates.list          — list email templates
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_EMAIL_CAMPAIGNS, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -42,9 +44,10 @@ def _trim(r: dict[str, Any]) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.email_campaigns.list",
     description=(
-        "List GHL email campaigns in the location (PIT REST, READ). "
-        "Use BEFORE update/schedule to confirm campaign ids and current status."
+        "List email campaigns in the location, "
+        "optionally filtered by status, archived flag, or name."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_email_campaigns(
     limit: int = 20,
@@ -79,9 +82,10 @@ async def list_email_campaigns(
 @mcp.tool(
     name="ghl.private.email_campaigns.create",
     description=(
-        "Create a new GHL email campaign definition (PIT REST, WRITE). "
-        "Nothing is sent until schedule is called separately. MEDIUM tier."
+        "Create a new email campaign definition. "
+        "Nothing is sent until the campaign is scheduled separately."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_email_campaign(
     name: str,
@@ -108,9 +112,9 @@ async def create_email_campaign(
 
 @mcp.tool(
     name="ghl.private.email_campaigns.update",
-    description=(
-        "Update an email campaign's name, subject, or status (PIT REST, WRITE). "
-        "Uses PATCH — V2 contract (PUT returns 405). MEDIUM tier."
+    description="Update an email campaign's name, subject, or status.",
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_email_campaign(
@@ -141,9 +145,10 @@ async def update_email_campaign(
 @mcp.tool(
     name="ghl.private.email_campaigns.delete",
     description=(
-        "PERMANENTLY delete an email campaign and its send history (PIT REST, WRITE, "
-        "DESTRUCTIVE). Open/click stats vanish with it. HIGH tier — requires confirmation."
+        "Permanently delete an email campaign and its send history. "
+        "Open and click statistics are removed with it."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_email_campaign(campaign_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -159,10 +164,10 @@ async def delete_email_campaign(campaign_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.email_campaigns.schedule",
     description=(
-        "Schedule an email campaign to send at a specific time (PIT REST, WRITE, BULK). "
-        "Triggers REAL emails to every matching recipient. "
-        "MEDIUM tier — approval card MUST surface estimated audience size."
+        "Schedule an email campaign to send at a specific time. "
+        "Sends real emails to every matching recipient — irreversible once delivered."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def schedule_email_campaign(
     campaign_id: str,
@@ -191,9 +196,10 @@ async def schedule_email_campaign(
 @mcp.tool(
     name="ghl.private.email_campaigns.workflow_campaigns.list",
     description=(
-        "List workflow-triggered email campaigns in the location (PIT REST, READ). "
+        "List workflow-triggered email campaigns in the location. "
         "Workflow campaigns fire as part of workflow steps."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_workflow_campaigns(
     limit: int = 10,
@@ -225,9 +231,10 @@ async def list_workflow_campaigns(
 @mcp.tool(
     name="ghl.private.email_campaigns.bulk_actions.list",
     description=(
-        "List bulk-action email campaigns (one-shot broadcasts via bulk-action UI) "
-        "(PIT REST, READ). Use for engagement/cost reporting."
+        "List bulk-action email campaigns "
+        "(one-shot broadcasts created via the bulk-action UI)."
     ),
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_bulk_action_campaigns(
     limit: int = 10,
@@ -261,10 +268,8 @@ async def list_bulk_action_campaigns(
 
 @mcp.tool(
     name="ghl.private.email_campaigns.templates.list",
-    description=(
-        "List GHL email templates in the location (PIT REST, READ). "
-        "Complements MCP emails_fetch-template (single by id). Use to discover template ids."
-    ),
+    description="List email templates in the location with id, name, and type.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_email_templates(limit: int = 20, skip: int = 0) -> dict[str, Any]:
     creds = load_pit_credentials()

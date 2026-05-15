@@ -1,18 +1,21 @@
-"""GHL PIT invoice-template tools (6 tools).
+"""GHL invoice-template tools (6 tools).
 
-Templates are reusable invoice skeletons.
+Templates are reusable invoice skeletons. Read/write classification is
+set per-tool via ``ToolAnnotations``.
 
-  ghl.private.invoice_templates.list           — list templates (READ)
-  ghl.private.invoice_templates.get            — get one template (READ)
-  ghl.private.invoice_templates.create         — create template (WRITE)
-  ghl.private.invoice_templates.update         — update template (WRITE)
-  ghl.private.invoice_templates.delete         — delete template (WRITE)
-  ghl.private.invoice_templates.update_late_fees — configure late fees (WRITE)
+  ghl.private.invoice_templates.list             — list templates
+  ghl.private.invoice_templates.get              — get one template
+  ghl.private.invoice_templates.create           — create a template
+  ghl.private.invoice_templates.update           — update template fields
+  ghl.private.invoice_templates.delete           — permanently delete a template
+  ghl.private.invoice_templates.update_late_fees — configure late fees on a template
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from ghl_mcp._client import GHL_API_VERSION_INVOICES, GhlPitClient, GhlPitError
 from ghl_mcp._creds import load_pit_credentials
@@ -41,10 +44,8 @@ def _trim(row: dict[str, Any]) -> dict[str, Any]:
 
 @mcp.tool(
     name="ghl.private.invoice_templates.list",
-    description=(
-        "List GHL invoice templates in the location (PIT REST, READ). "
-        "Templates are reusable invoice skeletons."
-    ),
+    description="List invoice templates in the location.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def list_invoice_templates(limit: int = 20, offset: int = 0) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -68,7 +69,8 @@ async def list_invoice_templates(limit: int = 20, offset: int = 0) -> dict[str, 
 
 @mcp.tool(
     name="ghl.private.invoice_templates.get",
-    description="Get one GHL invoice template's detail (PIT REST, READ).",
+    description="Get one invoice template's detail by id.",
+    annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_invoice_template(template_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -88,9 +90,10 @@ async def get_invoice_template(template_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.invoice_templates.create",
     description=(
-        "Create a new GHL invoice template (PIT REST, WRITE). "
-        "items: list of {name, quantity, unit_price, description?}. MEDIUM tier."
+        "Create a new invoice template. "
+        "items is a list of {name, quantity, unit_price, description?}."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
 )
 async def create_invoice_template(
     name: str,
@@ -132,8 +135,11 @@ async def create_invoice_template(
 @mcp.tool(
     name="ghl.private.invoice_templates.update",
     description=(
-        "Update fields on a GHL invoice template (PIT REST, WRITE). "
-        "items replaces the entire line-item list when provided. MEDIUM tier."
+        "Update fields on an invoice template. "
+        "If items is supplied it replaces the entire line-item list."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_invoice_template(
@@ -180,10 +186,10 @@ async def update_invoice_template(
 @mcp.tool(
     name="ghl.private.invoice_templates.delete",
     description=(
-        "Delete a GHL invoice template (PIT REST, WRITE, DESTRUCTIVE). "
-        "Deleting an in-use template breaks any invoices that reference it. "
-        "HIGH tier — requires confirmation."
+        "Permanently delete an invoice template. "
+        "Invoices that reference this template will lose the link."
     ),
+    annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True),
 )
 async def delete_invoice_template(template_id: str) -> dict[str, Any]:
     creds = load_pit_credentials()
@@ -203,8 +209,12 @@ async def delete_invoice_template(template_id: str) -> dict[str, Any]:
 @mcp.tool(
     name="ghl.private.invoice_templates.update_late_fees",
     description=(
-        "Configure late fees for a GHL invoice template (PIT REST, WRITE). "
-        "Enable/disable, set type (flat/percentage), amount, and grace period. MEDIUM tier."
+        "Configure late fees on an invoice template: enable/disable, type "
+        "(flat or percentage), amount, and grace period in days. "
+        "fee_type and fee_amount are required when enabled is true."
+    ),
+    annotations=ToolAnnotations(
+        readOnlyHint=False, destructiveHint=False, idempotentHint=True
     ),
 )
 async def update_template_late_fees(
