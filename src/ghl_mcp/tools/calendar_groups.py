@@ -68,24 +68,39 @@ async def list_calendar_groups() -> dict[str, Any]:
     annotations=ToolAnnotations(readOnlyHint=True),
 )
 async def get_calendar_group(group_id: str) -> dict[str, Any]:
+    """Resolve a single group via the LIST endpoint and filter client-side.
+
+    GHL's Calendar Groups API has no ``GET /calendars/groups/{id}`` — that
+    path 404s ("Cannot GET /calendars/groups/<id>"). Only ``GET
+    /calendars/groups`` (the list) exists, so we fetch it and match by id.
+    """
     creds = load_pit_credentials()
     async with GhlPitClient.from_creds(creds) as client:
         try:
             payload = await client.request(
                 "GET",
-                f"/calendars/groups/{group_id}",
+                "/calendars/groups",
                 version=GHL_API_VERSION_CALENDARS,
                 params={"locationId": creds.location_id},
             )
         except GhlPitError as exc:
             raise _wrap("ghl.private.calendar_groups.get", exc) from exc
-    r = payload.get("group") or payload
+    rows = payload.get("groups") or payload.get("data") or []
+    match = next(
+        (r for r in rows if isinstance(r, dict) and str(r.get("id") or r.get("_id") or "") == group_id),
+        None,
+    )
+    if match is None:
+        raise RuntimeError(
+            f"ghl.private.calendar_groups.get: no calendar group with id "
+            f"{group_id!r} in location {creds.location_id}."
+        )
     return {
-        "id": str(r.get("id") or r.get("_id") or group_id),
-        "name": r.get("name"),
-        "description": r.get("description"),
-        "slug": r.get("slug"),
-        "is_active": r.get("isActive"),
+        "id": str(match.get("id") or match.get("_id") or group_id),
+        "name": match.get("name"),
+        "description": match.get("description"),
+        "slug": match.get("slug"),
+        "is_active": match.get("isActive"),
     }
 
 

@@ -1,4 +1,4 @@
-"""GHL Private MCP server entry point — 92 tools.
+"""GHL Private MCP server entry point — 95 tools.
 
 Run modes
 ---------
@@ -12,7 +12,7 @@ HTTP (persistent service, accessible from other devices):
 
 Tool surfaces exposed
 ---------------------
-  ghl.private.calendars.*              (7 tools)
+  ghl.private.calendars.*             (10 tools)
   ghl.private.calendar_groups.*        (6 tools)
   ghl.private.users.*                  (2 tools)
   ghl.private.tags.*                   (5 tools)

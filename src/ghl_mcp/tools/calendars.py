@@ -5,13 +5,21 @@ Read/write classification is set per-tool via ``ToolAnnotations``
 client-side adapter derives approval-gating from those hints rather
 than parsing the description string.
 
-  ghl.private.calendars.list        — list all calendars
-  ghl.private.calendars.free_slots  — find bookable slots
-  ghl.private.calendars.book        — book one appointment
-  ghl.private.calendars.get         — get one calendar's config
-  ghl.private.calendars.create      — create a calendar
-  ghl.private.calendars.update      — update calendar fields
-  ghl.private.calendars.delete      — permanently delete
+  ghl.private.calendars.list              — list all calendars
+  ghl.private.calendars.free_slots        — find bookable (OPEN) slots
+  ghl.private.calendars.events            — read BOOKED events/appointments
+  ghl.private.calendars.get_appointment   — read one appointment by event id
+  ghl.private.calendars.appointment_notes — read an appointment's notes
+  ghl.private.calendars.book              — book one appointment
+  ghl.private.calendars.get               — get one calendar's config
+  ghl.private.calendars.create            — create a calendar
+  ghl.private.calendars.update            — update calendar fields
+  ghl.private.calendars.delete            — permanently delete
+
+``events`` is the read counterpart to ``free_slots``: free_slots returns
+OPEN windows, events returns what is actually BOOKED. GHL exposes booked
+events at ``GET /calendars/events`` and rejects a query scoped only to a
+location — one of calendar_id / user_id / group_id is required.
 """
 
 from __future__ import annotations
@@ -129,6 +137,142 @@ async def calendar_free_slots(
             "timezone": timezone,
             "resolved_iana_tz": str(resolved_zone) if resolved_zone is not None else None,
         },
+    }
+
+
+@mcp.tool(
+    name="ghl.private.calendars.events",
+    description=(
+        "Read BOOKED calendar events / appointments within a date window. "
+        "This is the read counterpart to free_slots (which returns OPEN slots). "
+        "REQUIRES one of calendar_id, user_id, or group_id — GHL rejects a query "
+        "scoped only to a location. Returns each booked event's contact, title, "
+        "start/end, and status."
+    ),
+    annotations=ToolAnnotations(readOnlyHint=True),
+)
+async def get_calendar_events(
+    start: datetime,
+    end: datetime,
+    calendar_id: str | None = None,
+    user_id: str | None = None,
+    group_id: str | None = None,
+    timezone: str | None = None,
+) -> dict[str, Any]:
+    """start / end MUST be timezone-aware. One of calendar_id / user_id / group_id is required."""
+    if calendar_id is None and user_id is None and group_id is None:
+        raise ValueError(
+            "ghl.private.calendars.events requires one of calendar_id, user_id, or "
+            "group_id. GHL's GET /calendars/events rejects a location-only query "
+            "(422). Resolve a calendar id via ghl.private.calendars.list first."
+        )
+    creds = load_pit_credentials()
+    params: dict[str, Any] = {
+        "locationId": creds.location_id,
+        "startTime": to_epoch_ms(start, field="start", iana_tz=timezone),
+        "endTime": to_epoch_ms(end, field="end", iana_tz=timezone),
+    }
+    if calendar_id is not None:
+        params["calendarId"] = calendar_id
+    if user_id is not None:
+        params["userId"] = user_id
+    if group_id is not None:
+        params["groupId"] = group_id
+    async with GhlPitClient.from_creds(creds) as client:
+        try:
+            payload = await client.request(
+                "GET", "/calendars/events", version=GHL_API_VERSION_CALENDARS, params=params
+            )
+        except GhlPitError as exc:
+            raise _wrap("ghl.private.calendars.events", exc) from exc
+    rows = payload.get("events") or payload.get("data") or []
+    events = [
+        {
+            "id": str(e.get("id") or e.get("_id") or ""),
+            "title": e.get("title"),
+            "calendar_id": e.get("calendarId"),
+            "contact_id": e.get("contactId"),
+            "assigned_user_id": e.get("assignedUserId"),
+            "start_time": e.get("startTime"),
+            "end_time": e.get("endTime"),
+            "appointment_status": e.get("appointmentStatus"),
+            "address": e.get("address"),
+        }
+        for e in rows
+        if isinstance(e, dict)
+    ]
+    return {"events": events, "total_count": len(events)}
+
+
+@mcp.tool(
+    name="ghl.private.calendars.get_appointment",
+    description="Read a single appointment (calendar event) by its event id.",
+    annotations=ToolAnnotations(readOnlyHint=True),
+)
+async def get_appointment(event_id: str) -> dict[str, Any]:
+    creds = load_pit_credentials()
+    async with GhlPitClient.from_creds(creds) as client:
+        try:
+            payload = await client.request(
+                "GET",
+                f"/calendars/events/appointments/{event_id}",
+                version=GHL_API_VERSION_CALENDARS,
+            )
+        except GhlPitError as exc:
+            raise _wrap("ghl.private.calendars.get_appointment", exc) from exc
+    e = payload.get("event") or payload.get("appointment") or payload
+    return {
+        "id": str(e.get("id") or e.get("_id") or event_id),
+        "title": e.get("title"),
+        "calendar_id": e.get("calendarId"),
+        "contact_id": e.get("contactId"),
+        "assigned_user_id": e.get("assignedUserId"),
+        "start_time": e.get("startTime"),
+        "end_time": e.get("endTime"),
+        "appointment_status": e.get("appointmentStatus"),
+        "raw": e if isinstance(e, dict) else {},
+    }
+
+
+@mcp.tool(
+    name="ghl.private.calendars.appointment_notes",
+    description="Read the free-text notes attached to an appointment by appointment id.",
+    annotations=ToolAnnotations(readOnlyHint=True),
+)
+async def get_appointment_notes(
+    appointment_id: str,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> dict[str, Any]:
+    creds = load_pit_credentials()
+    params: dict[str, Any] = {}
+    if limit is not None:
+        params["limit"] = limit
+    if offset is not None:
+        params["offset"] = offset
+    async with GhlPitClient.from_creds(creds) as client:
+        try:
+            payload = await client.request(
+                "GET",
+                f"/calendars/appointments/{appointment_id}/notes",
+                version=GHL_API_VERSION_CALENDARS,
+                params=params or None,
+            )
+        except GhlPitError as exc:
+            raise _wrap("ghl.private.calendars.appointment_notes", exc) from exc
+    rows = payload.get("notes") or payload.get("data") or []
+    return {
+        "notes": [
+            {
+                "id": str(n.get("id") or n.get("_id") or ""),
+                "body": n.get("body") or n.get("note"),
+                "created_at": n.get("createdAt") or n.get("dateAdded"),
+                "user_id": n.get("userId"),
+            }
+            for n in rows
+            if isinstance(n, dict)
+        ],
+        "total_count": len(rows),
     }
 
 
